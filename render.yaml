@@ -1,0 +1,11 @@
+# render.yaml
+services:
+  - type: web
+    name: trading-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: BOT_TOKEN
+        value: 7554758949:AAGPlcFoqEu5dkb11viXmInW0JFqqW92rh0
