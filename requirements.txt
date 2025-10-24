@@ -10,3 +10,5 @@ arabic-reshaper==3.0.0
 python-bidi==0.4.2
 certifi==2023.11.17
 urllib3==1.26.18
+yahoofinancials==1.6
+alpha-vantage==2.3.1

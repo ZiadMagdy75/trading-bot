@@ -9,80 +9,17 @@ class TechnicalAnalyzer:
         self.period = "2d"
         self.interval = "30m"
     
-    def get_stock_data(self, symbol):
-        """جلب بيانات السهم مع retry logic ومعالجة محسنة للأخطاء"""
-        import time
-        max_retries = 3
-        
-        for attempt in range(max_retries):
-            try:
-                print(f"🔍 محاولة {attempt + 1} لـ {symbol}")
-                
-                # استخدام الطريقة المحسنة
-                data = self.get_stock_data_enhanced(symbol)
-                if data is not None and not data.empty:
-                    return data
-                    
-            except Exception as e:
-                print(f"⚠️ محاولة {attempt + 1} فشلت: {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(2)  # انتظار 2 ثانية قبل إعادة المحاولة
-                continue
-        
-        print(f"❌ فشل جميع المحاولات لـ {symbol}")
-        return None
+    from data_providers import DataProvider
 
-    def get_stock_data_enhanced(self, symbol):
-        """نسخة محسنة لجلب البيانات مع معالجة الأخطاء"""
+    def get_stock_data(self, symbol):
+        """جلب البيانات باستخدام المزود الجديد"""
         try:
-            print(f"🔍 جلب بيانات: {symbol}")
-            
-            # انتظار عشوائي قبل كل طلب
-            from railway_setup import random_delay
-            random_delay(3, 7)  # انتظار 3-7 ثواني
-            
-            # إعداد headers لتجنب الحظر
-            import requests
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://finance.yahoo.com/'
-            })
-            
-            # استخدام session مخصص
-            ticker = yf.Ticker(symbol, session=session)
-            
-            # محاولة بفترات مختلفة - نبدأ بالأبسط
-            periods_to_try = ["1d", "2d", "5d"]  # قلل الفترة
-            intervals_to_try = ["1h", "30m", "15m"]  # غير الفترة
-            
-            for period in periods_to_try:
-                for interval in intervals_to_try:
-                    try:
-                        print(f"🔄 محاولة {period}/{interval} لـ {symbol}")
-                        data = ticker.history(period=period, interval=interval, timeout=15)
-                        
-                        if not data.empty and len(data) > 3:
-                            print(f"✅ تم جلب {len(data)} صف لـ {symbol} باستخدام {period}/{interval}")
-                            return data
-                        else:
-                            print(f"⚠️ بيانات فارغة لـ {symbol} بـ {period}/{interval}")
-                            
-                    except Exception as e:
-                        print(f"⚠️ فشل في {period}/{interval}: {str(e)[:100]}")
-                        # انتظار قبل المحاولة التالية
-                        random_delay(2, 4)
-                        continue
-            
-            print(f"❌ لا توجد بيانات لـ {symbol} بعد عدة محاولات")
-            return None
-            
+            return DataProvider.get_stock_data(symbol)
         except Exception as e:
-            print(f"❌ خطأ في جلب بيانات {symbol}: {e}")
-            return None
-        
+            print(f"❌ خطأ في جلب البيانات: {e}")
+            return DataProvider.get_data_fallback(symbol)
+
+    
     def get_symbol_name(self, symbol):
         """الحصول على الاسم الكامل للسهم"""
         name_map = {
@@ -526,3 +463,56 @@ class TechnicalAnalyzer:
         now = datetime.now()
         next_update = now.replace(minute=(now.minute // 30) * 30) + pd.Timedelta(minutes=30)
         return next_update.strftime("%H:%M")
+    
+    def simple_analysis(self, symbol):
+        """تحليل مبسط وسريع"""
+        try:
+            print(f"🔍 بدء تحليل مبسط لـ {symbol}")
+            
+            data = self.get_stock_data(symbol)
+            if data is None or data.empty:
+                return None, [], [], 0, {"direction": "غير معروف", "strength": "غير معروف", "symbol_name": self.get_symbol_name(symbol)}
+            
+            current_price = data['Close'].iloc[-1]
+            print(f"✅ السعر الحالي لـ {symbol}: {current_price}")
+            
+            # حساب دعم ومقاومة مبسط
+            price_range = current_price * 0.02  # 2%
+            supports = [
+                round(current_price - (price_range * 0.5), 2),
+                round(current_price - price_range, 2)
+            ]
+            resistances = [
+                round(current_price + (price_range * 0.5), 2),
+                round(current_price + price_range, 2)
+            ]
+            
+            # اتجاه مبسط
+            if len(data) > 5:
+                ma_short = data['Close'].tail(5).mean()
+                ma_long = data['Close'].tail(10).mean()
+                
+                if ma_short > ma_long and current_price > ma_short:
+                    direction = "صاعد 📈"
+                    strength = "قوي 💪" if (current_price - ma_long) / ma_long > 0.01 else "معتدل 🔸"
+                elif ma_short < ma_long and current_price < ma_short:
+                    direction = "هابط 📉"
+                    strength = "قوي 💪" if (ma_long - current_price) / ma_long > 0.01 else "معتدل 🔸"
+                else:
+                    direction = "متردد 🔄"
+                    strength = "محايد ⚖️"
+            else:
+                direction = "متردد 🔄"
+                strength = "غير معروف"
+            
+            trend_info = {
+                'direction': direction,
+                'strength': strength,
+                'symbol_name': self.get_symbol_name(symbol)
+            }
+            
+            return data, supports, resistances, current_price, trend_info
+            
+        except Exception as e:
+            print(f"❌ خطأ في التحليل المبسط: {e}")
+            return None, [], [], 0, {"direction": "خطأ", "strength": "خطأ", "symbol_name": symbol}
