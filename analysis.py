@@ -3,12 +3,18 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 from datetime import datetime
-
+import requests
 class TechnicalAnalyzer:
     def __init__(self):
         self.period = "2d"
         self.interval = "30m"
     
+        # إعداد جلسة requests مع user-agent حقيقي
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        })
+        yf.utils.requests = self.session  # <=== إضافة هامة
     def get_stock_data(self, symbol):
         """جلب بيانات السهم مع معالجة الرموز الخاصة"""
         try:
