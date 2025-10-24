@@ -10,25 +10,66 @@ class TechnicalAnalyzer:
         self.interval = "30m"
     
     def get_stock_data(self, symbol):
-        """جلب بيانات السهم مع معالجة الرموز الخاصة"""
+        """جلب بيانات السهم مع retry logic ومعالجة محسنة للأخطاء"""
+        import time
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"🔍 محاولة {attempt + 1} لـ {symbol}")
+                
+                # استخدام الطريقة المحسنة
+                data = self.get_stock_data_enhanced(symbol)
+                if data is not None and not data.empty:
+                    return data
+                    
+            except Exception as e:
+                print(f"⚠️ محاولة {attempt + 1} فشلت: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)  # انتظار 2 ثانية قبل إعادة المحاولة
+                continue
+        
+        print(f"❌ فشل جميع المحاولات لـ {symbol}")
+        return None
+
+    def get_stock_data_enhanced(self, symbol):
+        """نسخة محسنة لجلب البيانات مع معالجة الأخطاء"""
         try:
             print(f"🔍 جلب بيانات: {symbol}")
             
-            # استخدام الرمز مباشرة (لأن الرموز صحيحة الآن)
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(period=self.period, interval=self.interval)
+            # إعداد headers لتجنب الحظر
+            import requests
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+            })
             
-            if data.empty:
-                print(f"❌ لا توجد بيانات لـ {symbol}")
-                return None
-                
-            print(f"✅ تم جلب {len(data)} صف لـ {symbol}")
-            return data
+            # استخدام session مخصص
+            ticker = yf.Ticker(symbol, session=session)
+            
+            # محاولة بفترات مختلفة
+            periods_to_try = ["2d", "5d", "1d"]
+            intervals_to_try = ["30m", "15m", "1h"]
+            
+            for period in periods_to_try:
+                for interval in intervals_to_try:
+                    try:
+                        data = ticker.history(period=period, interval=interval, timeout=10)
+                        if not data.empty and len(data) > 5:
+                            print(f"✅ تم جلب {len(data)} صف لـ {symbol} باستخدام {period}/{interval}")
+                            return data
+                    except Exception as e:
+                        print(f"⚠️ فشل في {period}/{interval}: {e}")
+                        continue
+            
+            print(f"❌ لا توجد بيانات لـ {symbol} بعد عدة محاولات")
+            return None
             
         except Exception as e:
             print(f"❌ خطأ في جلب بيانات {symbol}: {e}")
             return None
-    
+        
     def get_symbol_name(self, symbol):
         """الحصول على الاسم الكامل للسهم"""
         name_map = {

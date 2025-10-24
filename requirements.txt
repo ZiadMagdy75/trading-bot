@@ -8,4 +8,5 @@ apscheduler==3.10.4
 requests==2.31.0
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
-certifi
+certifi==2023.11.17
+urllib3==1.26.18

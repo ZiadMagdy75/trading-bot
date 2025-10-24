@@ -11,6 +11,14 @@ from datetime import datetime, timedelta
 import threading
 import time
 
+# 🔧 إضافة هذا السطر - إعداد بيئة Railway
+try:
+    from railway_setup import setup_railway_environment
+    setup_railway_environment()
+except ImportError:
+    print("⚠️ إعدادات Railway غير متاحة - التشغيل المحلي")
+
+# باقي الكود كما هو...
 # إعداد التسجيل
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -38,7 +46,24 @@ class TradingBot:
         self.app.add_handler(CommandHandler("live", self.live_trading_data))
         self.app.add_handler(CommandHandler("quote", self.live_trading_data))
         self.app.add_handler(CommandHandler("status", self.status_command))
-    
+        self.app.add_handler(CommandHandler("test", self.test_connection))
+        
+    async def test_connection(self, update: Update, context: CallbackContext):
+        """اختبار اتصال البوت بالإنترنت"""
+        try:
+            import requests
+            await update.message.reply_text("🔍 جاري اختبار الاتصال...")
+            
+            # اختبار الاتصال بـ Yahoo Finance
+            response = requests.get('https://query1.finance.yahoo.com/v8/finance/chart/SPY', timeout=10)
+            
+            if response.status_code == 200:
+                await update.message.reply_text("✅ الاتصال بالإنترنت يعمل بشكل جيد")
+            else:
+                await update.message.reply_text(f"⚠️ مشكلة في الاتصال: {response.status_code}")
+                
+        except Exception as e:
+            await update.message.reply_text(f"❌ فشل الاتصال: {e}")
     async def start_command(self, update: Update, context: CallbackContext):
         """ترحيب بالعميل"""
         welcome_text = """
