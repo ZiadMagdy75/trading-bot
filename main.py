@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timedelta
 import threading
 import time
+from time_utils import time_utils
 
 # 🔧 إضافة هذا السطر - إعداد بيئة Railway
 try:
@@ -430,11 +431,10 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
         print("✅ نظام التحديث التلقائي يعمل بنجاح!")
     
     def get_next_update_time(self):
-        """حساب وقت التحديث القادم"""
-        now = datetime.now()
-        next_update = now.replace(minute=(now.minute // 30) * 30) + timedelta(minutes=30)
-        return next_update.strftime("%H:%M")
+        """حساب وقت التحديث القادم باستخدام التوقيت المحلي"""
+        return time_utils.format_next_update(UPDATE_INTERVAL)
     
+
     def create_report_text(self, symbol, current_price, supports, resistances, options, trend_info):
         """إنشاء نص التقرير مع شرح للمستويات"""
         support_text = "\n".join([f"{i+1}. {s:.2f}" for i, s in enumerate(supports)]) if supports else "📉 السعر قريب من قاع قوي"
@@ -452,7 +452,7 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
                 options_text += f"  📊 {opt['premium']} | 🎯 {opt['target']:.2f}\n"
     
         next_update = self.get_next_update_time()
-        
+        current_time = time_utils.format_time_12h()
         report = f"""
 📈 **تحليل {trend_info['symbol_name']}**
 
@@ -471,7 +471,7 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
 {options_text if options_text else "• لا توجد توصيات متاحة حالياً"}
 
 ⏰ **التحديث القادم:** {next_update}
-
+🕒 **الوقت الحالي:** {current_time}
 
 """
         return report

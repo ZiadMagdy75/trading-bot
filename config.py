@@ -24,3 +24,5 @@ CHART_COLORS = {
 # إعدادات التداول
 RISK_PERCENTAGE = 0.5  # نسبة المخاطرة
 TARGET_PERCENTAGE = 0.8  # نسبة الهدف
+# إعدادات التوقيت
+TIMEZONE = 'Africa/Cairo'  # توقيت مصر

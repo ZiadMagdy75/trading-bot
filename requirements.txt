@@ -12,3 +12,4 @@ certifi==2023.11.17
 urllib3==1.26.18
 yahoofinancials==1.6
 alpha-vantage==2.3.1
+pytz==2023.3
