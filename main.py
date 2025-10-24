@@ -25,6 +25,9 @@ class TradingBot:
         self.auto_chats = set()
         self.setup_handlers()
         
+        # بدء نظام التحديث التلقائي
+        self.start_auto_scheduler()
+        
     def setup_handlers(self):
         """إعداد أوامر البوت"""
         self.app.add_handler(CommandHandler("start", self.start_command))
@@ -34,36 +37,56 @@ class TradingBot:
         self.app.add_handler(CommandHandler("stop", self.stop_auto_analysis))
         self.app.add_handler(CommandHandler("live", self.live_trading_data))
         self.app.add_handler(CommandHandler("quote", self.live_trading_data))
+        self.app.add_handler(CommandHandler("status", self.status_command))
     
     async def start_command(self, update: Update, context: CallbackContext):
         """ترحيب بالعميل"""
         welcome_text = """
-        🎯 **مرحباً بك في بوت التحليل الفني المتقدم** 
-        
-        📊 **الأوامر المتاحة:**
-        /start - عرض الرسالة الترحيبية
-        /analyze [رمز السهم] - تحليل سهم معين مع الرسم البياني
-        /analysis - تحليل جميع الأسهم مرة واحدة
-        /live [رمز السهم] - بيانات التداول الحية (Bid/Ask/Volume)
-        /auto - تفعيل التحديث التلقائي كل 30 دقيقة
-        /stop - إيقاف التحديث التلقائي
-        
-        ⏰ **التحديث التلقائي:** كل 30 دقيقة
-        
-        📈 **الأسهم المدعومة:**
-        S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
-        
-        💡 **مميزات البوت:**
-        • 3 مستويات دعم ومقاومة
-        • تحليل اتجاه السهم (صاعد/هابط/متردد)
-        • رسوم بيانية متقدمة
-        • بيانات تداول حية (Bid/Ask)
-        • توصيات أوبشن هجومية
-        • تحديث تلقائي مستمر
-        
-        ⚠️ **تحذير:** التحليلات لأغراض تعليمية فقط
-        """
+🎯 **مرحباً بك في بوت التحليل الفني المتقدم** 
+
+📊 **الأوامر المتاحة:**
+/start - عرض الرسالة الترحيبية
+/analyze [رمز السهم] - تحليل سهم معين مع الرسم البياني
+/analysis - تحليل جميع الأسهم مرة واحدة
+/live [رمز السهم] - بيانات التداول الحية (Bid/Ask/Volume)
+/auto - تفعيل التحديث التلقائي كل 30 دقيقة
+/stop - إيقاف التحديث التلقائي
+/status - عرض حالة النظام
+
+⏰ **التحديث التلقائي:** كل 30 دقيقة
+
+📈 **الأسهم المدعومة:**
+S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
+
+💡 **مميزات البوت:**
+• 3 مستويات دعم ومقاومة
+• تحليل اتجاه السهم (صاعد/هابط/متردد)
+• رسوم بيانية متقدمة
+• بيانات تداول حية (Bid/Ask)
+• توصيات أوبشن هجومية
+• تحديث تلقائي مستمر
+"""
         await update.message.reply_text(welcome_text, parse_mode='Markdown')
+    
+    async def status_command(self, update: Update, context: CallbackContext):
+        """عرض حالة النظام"""
+        chat_id = update.effective_chat.id
+        auto_status = "مفعل ✅" if chat_id in self.auto_chats else "غير مفعل ❌"
+        next_update = self.get_next_update_time()
+        
+        status_text = f"""
+📊 **حالة النظام**
+
+🔄 **التحديث التلقائي:** {auto_status}
+👥 **المحادثات المفعلة:** {len(self.auto_chats)}
+⏰ **التحديث القادم:** {next_update}
+📈 **الأسهم المتابعة:** {len(SYMBOLS)}
+
+💡 **الأوامر:**
+/auto - تفعيل التحديث التلقائي
+/stop - إيقاف التحديث التلقائي
+"""
+        await update.message.reply_text(status_text, parse_mode='Markdown')
     
     async def live_trading_data(self, update: Update, context: CallbackContext):
         """عرض بيانات التداول الحية"""
@@ -229,10 +252,23 @@ class TradingBot:
         
         if chat_id not in self.auto_chats:
             self.auto_chats.add(chat_id)
-            await update.message.reply_text("✅ تم تفعيل التحديث التلقائي كل 30 دقيقة")
+            print(f"✅ تم تفعيل التحديث التلقائي للمحادثة: {chat_id}")
+            
+            # إرسال رسالة تأكيد مع وقت التحديث القادم
+            next_update = self.get_next_update_time()
+            await update.message.reply_text(
+                f"✅ **تم تفعيل التحديث التلقائي**\n\n"
+                f"⏰ سيتم إرسال التقارير كل 30 دقيقة تلقائياً\n"
+                f"📊 التحديث القادم: {next_update}\n"
+                
+                f"💡 لإيقاف التحديث: /stop",
+                parse_mode='Markdown'
+            )
+            
+            # إرسال تحليل فوري
             await self.send_auto_analysis(chat_id)
         else:
-            await update.message.reply_text("⚠️ التحديث التلقائي مفعل بالفعل")
+            await update.message.reply_text("⚠️ التحديث التلقائي مفعل بالفعل لهذه المحادثة")
     
     async def stop_auto_analysis(self, update: Update, context: CallbackContext):
         """إيقاف التحديث التلقائي"""
@@ -240,69 +276,114 @@ class TradingBot:
         
         if chat_id in self.auto_chats:
             self.auto_chats.remove(chat_id)
-            await update.message.reply_text("❌ تم إيقاف التحديث التلقائي")
+            print(f"❌ تم إيقاف التحديث التلقائي للمحادثة: {chat_id}")
+            await update.message.reply_text(
+                f"❌ **تم إيقاف التحديث التلقائي**\n\n"
+                f"📊 لم تعد تتلقى تحديثات تلقائية\n"
+                f"💡 لتفعيل التحديث: /auto",
+                parse_mode='Markdown'
+            )
         else:
-            await update.message.reply_text("⚠️ التحديث التلقائي غير مفعل")
+            await update.message.reply_text("⚠️ التحديث التلقائي غير مفعل لهذه المحادثة")
     
     async def send_auto_analysis(self, chat_id):
         """إرسال التحليل التلقائي"""
         try:
-            await self.app.bot.send_message(chat_id, "🔄 بدء التحليل التلقائي لجميع الأسهم...")
+            print(f"🔍 بدء التحليل التلقائي للمحادثة: {chat_id}")
+            
+            # إرسال رسالة بدء التحليل
+            await self.app.bot.send_message(chat_id, "🔄 **بدء التحليل التلقائي**\nجاري تحليل جميع الأسهم...")
+            
+            successful_analysis = 0
             
             for symbol in SYMBOLS:
-                chart_buffer, supports, resistances, options, current_price, trend_info = await self.analyze_symbol(symbol)
-                
-                if chart_buffer:
-                    report_text = self.create_report_text(symbol, current_price, supports, resistances, options, trend_info)
+                try:
+                    print(f"📊 جاري تحليل: {symbol}")
                     
-                    try:
-                        await asyncio.wait_for(
-                            self.app.bot.send_photo(
+                    chart_buffer, supports, resistances, options, current_price, trend_info = await self.analyze_symbol(symbol)
+                    
+                    if chart_buffer:
+                        report_text = self.create_report_text(symbol, current_price, supports, resistances, options, trend_info)
+                        
+                        try:
+                            await self.app.bot.send_photo(
                                 chat_id=chat_id,
                                 photo=InputFile(chart_buffer, filename=f'{symbol}_chart.png'),
                                 caption=report_text,
                                 parse_mode='Markdown'
-                            ),
-                            timeout=20.0
-                        )
-                    except (asyncio.TimeoutError, TimedOut):
-                        await self.app.bot.send_message(chat_id, f"⏰ تم تخطي صورة {symbol}")
-                        await self.app.bot.send_message(chat_id, report_text, parse_mode='Markdown')
-                    except Exception as e:
-                        logger.error(f"Error sending auto analysis for {symbol}: {e}")
-                        await self.app.bot.send_message(chat_id, report_text, parse_mode='Markdown')
-                
-                await asyncio.sleep(2)
-                
-            await self.app.bot.send_message(chat_id, f"✅ تم الانتهاء من التحليل التلقائي")
+                            )
+                            successful_analysis += 1
+                            print(f"✅ تم إرسال تحليل {symbol}")
+                            
+                        except Exception as e:
+                            print(f"⚠️ خطأ في إرسال صورة {symbol}: {e}")
+                            await self.app.bot.send_message(chat_id, report_text, parse_mode='Markdown')
+                            successful_analysis += 1
+                    else:
+                        print(f"❌ فشل في تحليل {symbol}")
+                    
+                    # انتظار 3 ثوان بين كل سهم
+                    await asyncio.sleep(3)
+                    
+                except Exception as e:
+                    print(f"❌ خطأ في تحليل {symbol}: {e}")
+                    await self.app.bot.send_message(chat_id, f"❌ خطأ في تحليل {symbol}")
+            
+            # إرسال ملخص
+            next_update = self.get_next_update_time()
+            summary = (
+                f"✅ **تم الانتهاء من التحليل التلقائي**\n\n"
+                f"📊 تم تحليل {successful_analysis} من {len(SYMBOLS)} أسهم بنجاح\n"
+                f"⏰ التحديث القادم: {next_update}\n\n"
+                f"💡 لإيقاف التحديث: /stop"
+            )
+            await self.app.bot.send_message(chat_id, summary, parse_mode='Markdown')
+            
+            print(f"🎯 تم الانتهاء من التحليل التلقائي للمحادثة {chat_id}")
             
         except Exception as e:
-            logger.error(f"Error in auto analysis for chat {chat_id}: {e}")
+            print(f"🚨 خطأ كبير في التحليل التلقائي: {e}")
+            try:
+                await self.app.bot.send_message(chat_id, "❌ حدث خطأ في التحليل التلقائي، جاري إعادة المحاولة في المرة القادمة")
+            except:
+                pass
     
     def start_auto_scheduler(self):
-        """بدء الجدولة التلقائية"""
+        """بدء الجدولة التلقائية بشكل صحيح"""
         def scheduler_loop():
+            print("🔄 نظام التحديث التلقائي بدأ العمل...")
+            counter = 0
             while True:
                 try:
-                    time.sleep(UPDATE_INTERVAL * 60)
+                    counter += 1
+                    # الانتظار 30 دقيقة (1800 ثانية)
+                    print(f"⏰ الانتظار {UPDATE_INTERVAL} دقيقة للتحديث القادم... (الدورة: {counter})")
+                    time.sleep(UPDATE_INTERVAL * 60)  # 30 * 60 = 1800 ثانية
                     
                     if self.auto_chats:
-                        logger.info(f"🔄 Sending auto analysis to {len(self.auto_chats)} chats")
+                        print(f"🎯 وجد {len(self.auto_chats)} محادثة مفعلة، جاري الإرسال...")
                         
                         for chat_id in list(self.auto_chats):
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.send_auto_analysis(chat_id), 
-                                self.app._get_running_loop()
-                            )
-                            # لا حاجة للانتظار هنا - future يتم بشكل منفصل
-                            
+                            try:
+                                print(f"📤 إرسال تحليل تلقائي للمحادثة: {chat_id}")
+                                # إنشاء event loop جديد لكل عملية
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                loop.run_until_complete(self.send_auto_analysis(chat_id))
+                                loop.close()
+                                print(f"✅ تم الإرسال بنجاح للمحادثة: {chat_id}")
+                            except Exception as e:
+                                print(f"❌ خطأ في إرسال التحليل لـ {chat_id}: {e}")
+                    else:
+                        print("ℹ️ لا توجد محادثات مفعلة للتحديث التلقائي")
+                        
                 except Exception as e:
-                    logger.error(f"❌ Scheduler error: {e}")
-                    time.sleep(60)
+                    print(f"🚨 خطأ في الجدولة: {e}")
+                    time.sleep(60)  # الانتظار دقيقة ثم إعادة المحاولة
         
         scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)
         scheduler_thread.start()
-        logger.info("✅ Auto scheduler started successfully")
+        print("✅ نظام التحديث التلقائي يعمل بنجاح!")
     
     def get_next_update_time(self):
         """حساب وقت التحديث القادم"""
@@ -347,18 +428,24 @@ class TradingBot:
 
 ⏰ **التحديث القادم:** {next_update}
 
-⚡️ **ملاحظة:** التوصيات لأغراض تعليمية فقط
-        """
+
+"""
         return report
     
     def run(self):
         """تشغيل البوت"""
         logger.info("🎯 Starting Enhanced Trading Bot...")
         
-        self.start_auto_scheduler()
+        print("🤖 البوت يعمل الآن...")
+        print("💡 الأوامر المتاحة:")
+        print("   /start - عرض التعليمات")
+        print("   /auto - تفعيل التحديث التلقائي")
+        print("   /stop - إيقاف التحديث التلقائي")
+        print("   /status - عرض حالة النظام")
+        
         self.app.run_polling(
-            poll_interval=3.0,  # تقليل فترة الاستطلاع
-            drop_pending_updates=True  # تجاهل التحديثات المعلقة عند البدء
+            poll_interval=3.0,
+            drop_pending_updates=True
         )
 
 if __name__ == "__main__":
