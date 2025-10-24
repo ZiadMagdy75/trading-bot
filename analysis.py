@@ -3,14 +3,12 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 from datetime import datetime
-
+from data_providers import DataProvider
 class TechnicalAnalyzer:
     def __init__(self):
         self.period = "2d"
         self.interval = "30m"
     
-    from data_providers import DataProvider
-
     def get_stock_data(self, symbol):
         """جلب البيانات باستخدام المزود الجديد"""
         try:
