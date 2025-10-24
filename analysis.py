@@ -15,7 +15,6 @@ class TechnicalAnalyzer:
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         })
-        # تمرير الجلسة إلى yfinance
         yf.utils.requests = self.session
 
     def get_stock_data(self, symbol):
@@ -23,26 +22,22 @@ class TechnicalAnalyzer:
         import json
         try:
             print(f"🔍 جلب بيانات: {symbol}")
-            
+
             ticker = yf.Ticker(symbol, session=self.session)
             data = ticker.history(period=self.period, interval=self.interval)
 
+            # fallback: API مباشر لو فشل yfinance
             if data is None or data.empty:
                 print(f"⚠️ لا توجد بيانات من Yahoo، تجربة API بديل...")
-
-                # ✅ استخدام API مجاني بديل (RapidAPI Yahoo Finance)
                 url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=30m&range=5d"
                 r = self.session.get(url, timeout=10)
                 chart = r.json()["chart"]["result"][0]
-
                 timestamps = chart["timestamp"]
                 close_prices = chart["indicators"]["quote"][0]["close"]
-
                 df = pd.DataFrame({
                     "Datetime": pd.to_datetime(timestamps, unit="s"),
                     "Close": close_prices
                 }).dropna()
-
                 df.set_index("Datetime", inplace=True)
                 data = df
 
@@ -58,7 +53,6 @@ class TechnicalAnalyzer:
             return None
 
     def get_symbol_name(self, symbol):
-        """الحصول على الاسم الكامل للسهم"""
         name_map = {
             '^GSPC': 'S&P 500 Index',
             '^NDX': 'NASDAQ 100 Index',
@@ -71,7 +65,6 @@ class TechnicalAnalyzer:
         return name_map.get(symbol, symbol)
 
     def calculate_trend_direction(self, data):
-        """تحديد اتجاه السهم (صاعد/هابط/متردد)"""
         if data is None or len(data) < 20:
             return "متردد 🔄"
 
@@ -79,9 +72,6 @@ class TechnicalAnalyzer:
         ma_short = closes.rolling(window=5).mean()
         ma_medium = closes.rolling(window=10).mean()
         ma_long = closes.rolling(window=20).mean()
-
-        if len(ma_short) < 20 or len(ma_medium) < 20 or len(ma_long) < 20:
-            return "متردد 🔄"
 
         ma_short_last = ma_short.iloc[-1]
         ma_medium_last = ma_medium.iloc[-1]
@@ -103,7 +93,6 @@ class TechnicalAnalyzer:
             return "متردد 🔄"
 
     def get_trend_analysis(self, symbol):
-        """تحليل مفصل للاتجاه"""
         data = self.get_stock_data(symbol)
         if data is None or data.empty:
             return {
@@ -137,98 +126,56 @@ class TechnicalAnalyzer:
             'symbol_name': self.get_symbol_name(symbol)
         }
 
-    def get_live_trading_data(self, symbol):
-        """جلب بيانات التداول الحية مع معالجة المؤشرات"""
-        try:
-            print(f"🔍 جلب بيانات حية لـ: {symbol}")
-            ticker = yf.Ticker(symbol, session=self.session)
-            info = ticker.info
-            history = ticker.history(period='1d', interval='1m')
+    # 🔹 باقي الدوال اللي كانت ناقصة:
 
-            if history.empty:
-                print(f"❌ لا توجد بيانات تاريخية لـ {symbol}")
-                return None
+    def calculate_support_resistance(self, data, levels=3):
+        if data is None or len(data) < 10:
+            return [], []
 
-            current_price = history['Close'].iloc[-1]
-            volume = history['Volume'].iloc[-1] if 'Volume' in history and not pd.isna(history['Volume'].iloc[-1]) else 0
-            is_index = symbol.startswith('^')
+        highs = data['High'] if 'High' in data else data['Close']
+        lows = data['Low'] if 'Low' in data else data['Close']
+        closes = data['Close']
+        current_price = closes.iloc[-1]
 
-            return (self._handle_index_data(symbol, current_price, volume, info)
-                    if is_index else self._handle_stock_data(symbol, current_price, volume, info))
+        pivot_point = (highs.tail(1).iloc[0] + lows.tail(1).iloc[0] + closes.tail(1).iloc[0]) / 3
+        r1 = (2 * pivot_point) - lows.tail(1).iloc[0]
+        s1 = (2 * pivot_point) - highs.tail(1).iloc[0]
 
-        except Exception as e:
-            print(f"❌ خطأ في جلب البيانات الحية لـ {symbol}: {e}")
-            return self._get_fallback_data(symbol)
+        fib_levels = self.calculate_fibonacci_levels(highs.max(), lows.min())
 
-    def _handle_index_data(self, symbol, current_price, volume, info):
-        spread = current_price * 0.0001
+        resistances = sorted([r1, fib_levels[0.5], fib_levels[0.618], highs.max()])
+        supports = sorted([s1, fib_levels[0.382], fib_levels[0.236], lows.min()], reverse=True)
+
+        return supports[:levels], resistances[:levels]
+
+    def calculate_fibonacci_levels(self, high, low):
+        diff = high - low
         return {
-            'symbol': symbol,
-            'symbol_name': self.get_symbol_name(symbol),
-            'current_price': round(current_price, 2),
-            'bid_price': round(current_price - spread, 2),
-            'ask_price': round(current_price + spread, 2),
-            'bid_size': 1000,
-            'ask_size': 1000,
-            'volume': volume,
-            'change': round(info.get('regularMarketChange', 0), 2),
-            'change_percent': round(info.get('regularMarketChangePercent', 0), 2),
-            'day_high': info.get('dayHigh', current_price * 1.005),
-            'day_low': info.get('dayLow', current_price * 0.995),
-            'previous_close': info.get('regularMarketPreviousClose', current_price),
-            'timestamp': datetime.now().strftime("%H:%M:%S"),
-            'is_index': True
+            0.236: high - diff * 0.236,
+            0.382: high - diff * 0.382,
+            0.5: high - diff * 0.5,
+            0.618: high - diff * 0.618,
+            1.0: low
         }
 
-    def _handle_stock_data(self, symbol, current_price, volume, info):
-        spread = current_price * 0.0005
-        return {
-            'symbol': symbol,
-            'symbol_name': self.get_symbol_name(symbol),
-            'current_price': round(current_price, 2),
-            'bid_price': round(current_price - spread, 2),
-            'ask_price': round(current_price + spread, 2),
-            'bid_size': np.random.randint(100, 5000),
-            'ask_size': np.random.randint(100, 5000),
-            'volume': volume,
-            'change': round(info.get('regularMarketChange', current_price * 0.01), 2),
-            'change_percent': round(info.get('regularMarketChangePercent', 0.1), 2),
-            'day_high': info.get('dayHigh', current_price * 1.02),
-            'day_low': info.get('dayLow', current_price * 0.98),
-            'previous_close': info.get('regularMarketPreviousClose', current_price),
-            'timestamp': datetime.now().strftime("%H:%M:%S"),
-            'is_index': False
-        }
-
-    def _get_fallback_data(self, symbol):
-        """بيانات احتياطية إذا فشل المصدر الرئيسي"""
-        try:
-            ticker = yf.Ticker(symbol, session=self.session)
-            history = ticker.history(period='1d', interval='1m')
-            if not history.empty:
-                current_price = history['Close'].iloc[-1]
-                return {
-                    'symbol': symbol,
-                    'symbol_name': self.get_symbol_name(symbol),
-                    'current_price': round(current_price, 2),
-                    'bid_price': round(current_price - 0.01, 2),
-                    'ask_price': round(current_price + 0.01, 2),
-                    'bid_size': 500,
-                    'ask_size': 500,
-                    'volume': 0,
-                    'change': 0.0,
-                    'change_percent': 0.0,
-                    'day_high': current_price * 1.01,
-                    'day_low': current_price * 0.99,
-                    'previous_close': current_price,
-                    'timestamp': datetime.now().strftime("%H:%M:%S"),
-                    'is_index': symbol.startswith('^')
-                }
-        except:
-            pass
-        return None
-
-    def get_next_update_time(self):
-        now = datetime.now()
-        next_update = now.replace(minute=(now.minute // 30) * 30) + pd.Timedelta(minutes=30)
-        return next_update.strftime("%H:%M")
+    def generate_options_recommendation(self, symbol, current_price, supports, resistances):
+        recs = []
+        if resistances:
+            call_strike = min(resistances, key=lambda x: abs(x - current_price))
+            recs.append({
+                'type': 'CALL 📈',
+                'strike': call_strike,
+                'premium': 'هجومي ⚡' if (call_strike - current_price) / current_price < 0.02 else 'متوسط 📊',
+                'target': call_strike + (call_strike * 0.008),
+                'stoploss': current_price - (current_price * 0.005)
+            })
+        if supports:
+            put_strike = max(supports, key=lambda x: abs(x - current_price))
+            recs.append({
+                'type': 'PUT 📉',
+                'strike': put_strike,
+                'premium': 'هجومي ⚡' if (current_price - put_strike) / current_price < 0.02 else 'متوسط 📊',
+                'target': put_strike - (put_strike * 0.008),
+                'stoploss': current_price + (current_price * 0.005)
+            })
+        return recs
