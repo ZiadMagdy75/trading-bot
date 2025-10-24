@@ -394,16 +394,24 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
                 pass
     
     def start_auto_scheduler(self):
-        """بدء الجدولة التلقائية بشكل صحيح"""
+        """بدء الجدولة التلقائية - نسخة محسنة"""
         def scheduler_loop():
             print("🔄 نظام التحديث التلقائي بدأ العمل...")
-            counter = 0
+            
             while True:
                 try:
-                    counter += 1
-                    # الانتظار 30 دقيقة (1800 ثانية)
-                    print(f"⏰ الانتظار {UPDATE_INTERVAL} دقيقة للتحديث القادم... (الدورة: {counter})")
-                    time.sleep(UPDATE_INTERVAL * 60)  # 30 * 60 = 1800 ثانية
+                    # حساب الوقت المتبقي للتحديث القادم
+                    now = datetime.now()
+                    next_update = time_utils.get_next_update_time(UPDATE_INTERVAL)
+                    wait_seconds = (next_update - now).total_seconds()
+                    
+                    if wait_seconds < 0:
+                        wait_seconds = UPDATE_INTERVAL * 60  # 30 دقيقة
+                    
+                    print(f"⏰ الانتظار {wait_seconds/60:.1f} دقيقة للتحديث القادم ({time_utils.format_time(next_update)})")
+                    
+                    # الانتظار حتى وقت التحديث
+                    time.sleep(wait_seconds)
                     
                     if self.auto_chats:
                         print(f"🎯 وجد {len(self.auto_chats)} محادثة مفعلة، جاري الإرسال...")
@@ -411,12 +419,10 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
                         for chat_id in list(self.auto_chats):
                             try:
                                 print(f"📤 إرسال تحليل تلقائي للمحادثة: {chat_id}")
-                                # إنشاء event loop جديد لكل عملية
                                 loop = asyncio.new_event_loop()
                                 asyncio.set_event_loop(loop)
                                 loop.run_until_complete(self.send_auto_analysis(chat_id))
                                 loop.close()
-                                print(f"✅ تم الإرسال بنجاح للمحادثة: {chat_id}")
                             except Exception as e:
                                 print(f"❌ خطأ في إرسال التحليل لـ {chat_id}: {e}")
                     else:
@@ -428,8 +434,9 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
         
         scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)
         scheduler_thread.start()
-        print("✅ نظام التحديث التلقائي يعمل بنجاح!")
-    
+        print("✅ نظام التحديث التلقائي يعمل بنجاح!")  
+        
+          
     def get_next_update_time(self):
         """حساب وقت التحديث القادم"""
         next_update = time_utils.get_next_update_time(UPDATE_INTERVAL)

@@ -25,21 +25,21 @@ class TimeUtils:
         return dt.strftime("%I:%M %p")  # 03:32 PM
     
     def get_next_update_time(self, interval_minutes=30):
-        """حساب وقت التحديث القادم بدقة"""
+        """حساب وقت التحديث القادم - على أوقات 00 و 30"""
         now = self.get_current_time()
         
-        # حساب الدقائق المتبوية للتحديث القادم
+        # حساب أقرب 00 أو 30 قادم
         current_minute = now.minute
-        minutes_past_hour = current_minute % interval_minutes
         
-        if minutes_past_hour == 0:
-            # إذا كنا في بداية النص ساعة، التحديث القادم بعد 30 دقيقة
-            minutes_to_next = interval_minutes
+        if current_minute < 30:
+            # إذا الدقائق أقل من 30، التحديث القادم على 30
+            minutes_to_next = 30 - current_minute
         else:
-            # حساب كم دقيقة باقية للتحديث القادم
-            minutes_to_next = interval_minutes - minutes_past_hour
+            # إذا الدقائق أكثر من 30، التحديث القادم على 00 من الساعة الجاية
+            minutes_to_next = 60 - current_minute
         
         next_update = now + timedelta(minutes=minutes_to_next)
+        next_update = next_update.replace(second=0, microsecond=0)
         
         print(f"⏰ حساب التحديث: الآن {self.format_time(now)} - التحديث بعد {minutes_to_next} دقيقة - الساعة {self.format_time(next_update)}")
         
