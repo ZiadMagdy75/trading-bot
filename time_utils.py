@@ -25,30 +25,30 @@ class TimeUtils:
         return dt.strftime("%I:%M %p")  # 03:32 PM
     
     def get_next_update_time(self, interval_minutes=30):
-        """حساب وقت التحديث القادم - على أوقات 00 و 30"""
+        """حساب وقت التحديث القادم - إضافة 30 دقيقة مباشرة"""
         now = self.get_current_time()
         
-        # حساب أقرب 00 أو 30 قادم
-        current_minute = now.minute
+        # ببساطة نضيف 30 دقيقة للوقت الحالي
+        next_update = now + timedelta(minutes=interval_minutes)
         
-        if current_minute < 30:
-            # إذا الدقائق أقل من 30، التحديث القادم على 30
-            minutes_to_next = 30 - current_minute
-        else:
-            # إذا الدقائق أكثر من 30، التحديث القادم على 00 من الساعة الجاية
-            minutes_to_next = 60 - current_minute
-        
-        next_update = now + timedelta(minutes=minutes_to_next)
+        # تقريب الثواني
         next_update = next_update.replace(second=0, microsecond=0)
         
-        print(f"⏰ حساب التحديث: الآن {self.format_time(now)} - التحديث بعد {minutes_to_next} دقيقة - الساعة {self.format_time(next_update)}")
+        print(f"⏰ حساب التحديث: الآن {self.format_time(now)} + {interval_minutes} دقيقة = {self.format_time(next_update)}")
         
         return next_update
-        
     def format_next_update(self, interval_minutes=30):
         """تنسيق وقت التحديث القادم"""
         next_update = self.get_next_update_time(interval_minutes)
         return self.format_time(next_update, "%H:%M")
 
+    def get_seconds_until_next_update(self, interval_minutes=30):
+        """حساب الثواني المتبقية حتى التحديث القادم"""
+        now = self.get_current_time()
+        next_update = self.get_next_update_time(interval_minutes)
+        seconds_until = (next_update - now).total_seconds()
+        
+        print(f"⏳ الثواني المتبقية: {seconds_until:.0f} ثانية ({seconds_until/60:.1f} دقيقة)")
+        return max(seconds_until, 60)  # الحد الأدنى 60 ثانية
 # إنشاء كائن عام للاستخدام
 time_utils = TimeUtils()

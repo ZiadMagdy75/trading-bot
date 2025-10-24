@@ -331,14 +331,19 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
             await update.message.reply_text("⚠️ التحديث التلقائي غير مفعل لهذه المحادثة")
     
     async def send_auto_analysis(self, chat_id):
-        """إرسال التحليل التلقائي"""
+        """إرسال التحليل التلقائي - نسخة محسنة"""
         try:
             print(f"🔍 بدء التحليل التلقائي للمحادثة: {chat_id}")
             
             # إرسال رسالة بدء التحليل
-            await self.app.bot.send_message(chat_id, "🔄 **بدء التحليل التلقائي**\nجاري تحليل جميع الأسهم...")
+            start_time = datetime.now()
+            await self.app.bot.send_message(
+                chat_id, 
+                f"🔄 **بدء التحليل التلقائي**\nجاري تحليل {len(SYMBOLS)} أسهم..."
+            )
             
             successful_analysis = 0
+            failed_analysis = 0
             
             for symbol in SYMBOLS:
                 try:
@@ -365,48 +370,63 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
                             successful_analysis += 1
                     else:
                         print(f"❌ فشل في تحليل {symbol}")
+                        failed_analysis += 1
                     
-                    # انتظار 3 ثوان بين كل سهم
-                    await asyncio.sleep(3)
+                    # انتظار 2 ثوان بين كل سهم (تقليل الوقت)
+                    await asyncio.sleep(2)
                     
                 except Exception as e:
                     print(f"❌ خطأ في تحليل {symbol}: {e}")
-                    await self.app.bot.send_message(chat_id, f"❌ خطأ في تحليل {symbol}")
+                    failed_analysis += 1
             
             # إرسال ملخص
-            next_update = self.get_next_update_time()
-            summary = (
-                f"✅ **تم الانتهاء من التحليل التلقائي**\n\n"
-                f"📊 تم تحليل {successful_analysis} من {len(SYMBOLS)} أسهم بنجاح\n"
-                f"💡 لإيقاف التحديث: /stop"
-            )
-            await self.app.bot.send_message(chat_id, summary, parse_mode='Markdown')
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds() / 60
             
+            next_update = self.get_next_update_time()
+            summary = f"""
+    ✅ **تم الانتهاء من التحليل التلقائي**
+
+    📊 **النتائج:**
+    • ✅ ناجح: {successful_analysis} سهم
+    • ❌ فاشل: {failed_analysis} سهم
+    • ⏱️ المدة: {duration:.1f} دقيقة
+
+    ⏰ **التحديث القادم:** {next_update}
+
+    💡 **الأوامر:**
+    /stop - إيقاف التحديث التلقائي
+    /checkauto - فحص حالة التحديث
+            """.strip()
+            
+            await self.app.bot.send_message(chat_id, summary, parse_mode='Markdown')
             print(f"🎯 تم الانتهاء من التحليل التلقائي للمحادثة {chat_id}")
             
         except Exception as e:
             print(f"🚨 خطأ كبير في التحليل التلقائي: {e}")
             try:
-                await self.app.bot.send_message(chat_id, "❌ حدث خطأ في التحليل التلقائي، جاري إعادة المحاولة في المرة القادمة")
+                await self.app.bot.send_message(
+                    chat_id, 
+                    "❌ حدث خطأ في التحليل التلقائي، جاري إعادة المحاولة في المرة القادمة"
+                )
             except:
                 pass
-    
+ 
     def start_auto_scheduler(self):
-        """بدء الجدولة التلقائية - نسخة محسنة"""
+        """بدء الجدولة التلقائية - نسخة مصححة"""
         def scheduler_loop():
             print("🔄 نظام التحديث التلقائي بدأ العمل...")
+            counter = 0
             
             while True:
                 try:
-                    # حساب الوقت المتبقي للتحديث القادم
-                    now = datetime.now()
-                    next_update = time_utils.get_next_update_time(UPDATE_INTERVAL)
-                    wait_seconds = (next_update - now).total_seconds()
+                    counter += 1
+                    print(f"🔄 دورة الجدولة رقم: {counter}")
                     
-                    if wait_seconds < 0:
-                        wait_seconds = UPDATE_INTERVAL * 60  # 30 دقيقة
+                    # حساب الثواني المتبقية للتحديث القادم
+                    wait_seconds = time_utils.get_seconds_until_next_update(UPDATE_INTERVAL)
                     
-                    print(f"⏰ الانتظار {wait_seconds/60:.1f} دقيقة للتحديث القادم ({time_utils.format_time(next_update)})")
+                    print(f"⏰ الانتظار {wait_seconds/60:.1f} دقيقة للتحديث القادم...")
                     
                     # الانتظار حتى وقت التحديث
                     time.sleep(wait_seconds)
@@ -417,10 +437,12 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
                         for chat_id in list(self.auto_chats):
                             try:
                                 print(f"📤 إرسال تحليل تلقائي للمحادثة: {chat_id}")
+                                # إنشاء event loop جديد لكل عملية
                                 loop = asyncio.new_event_loop()
                                 asyncio.set_event_loop(loop)
                                 loop.run_until_complete(self.send_auto_analysis(chat_id))
                                 loop.close()
+                                print(f"✅ تم الإرسال بنجاح للمحادثة: {chat_id}")
                             except Exception as e:
                                 print(f"❌ خطأ في إرسال التحليل لـ {chat_id}: {e}")
                     else:
@@ -428,13 +450,12 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
                         
                 except Exception as e:
                     print(f"🚨 خطأ في الجدولة: {e}")
-                    time.sleep(60)  # الانتظار دقيقة ثم إعادة المحاولة
-        
+                    # في حالة الخطأ، ننتظر 5 دقائق ثم نعيد المحاولة
+                    time.sleep(300)
+            
         scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)
         scheduler_thread.start()
         print("✅ نظام التحديث التلقائي يعمل بنجاح!")  
-        
-          
     def get_next_update_time(self):
         """حساب وقت التحديث القادم"""
         next_update = time_utils.get_next_update_time(UPDATE_INTERVAL)
