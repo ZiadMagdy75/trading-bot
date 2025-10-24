@@ -119,38 +119,106 @@ class TechnicalAnalyzer:
         }
     
     def get_live_trading_data(self, symbol):
-        """جلب بيانات التداول الحية مع معالجة المؤشرات"""
+        """جلب بيانات التداول الحية بشكل مبسط"""
         try:
             print(f"🔍 جلب بيانات حية لـ: {symbol}")
             
-            ticker = yf.Ticker(symbol)
-            
-            # جلب البيانات الأساسية
-            info = ticker.info
-            history = ticker.history(period='1d', interval='1m')
-            
-            if history.empty:
-                print(f"❌ لا توجد بيانات تاريخية لـ {symbol}")
+            # استخدام الطريقة المباشرة
+            data = self.get_stock_data(symbol)
+            if data is None or data.empty:
+                print(f"❌ لا توجد بيانات لـ {symbol}")
                 return None
             
-            # آخر سعر وحجم
-            current_price = history['Close'].iloc[-1]
-            volume = history['Volume'].iloc[-1] if 'Volume' in history and not pd.isna(history['Volume'].iloc[-1]) else 0
+            # آخر سعر من البيانات
+            current_price = data['Close'].iloc[-1]
+            volume = data['Volume'].iloc[-1] if 'Volume' in data.columns else 0
+            
+            # حساب تغيير السعر
+            if len(data) > 1:
+                prev_price = data['Close'].iloc[-2]
+                change = current_price - prev_price
+                change_percent = (change / prev_price) * 100
+            else:
+                change = 0
+                change_percent = 0
             
             # تحديد إذا كان المؤشر أو سهم عادي
             is_index = symbol.startswith('^')
             
-            if is_index:
-                # معالجة المؤشرات (مثل ^NDX, ^GSPC)
-                return self._handle_index_data(symbol, current_price, volume, info)
-            else:
-                # معالجة الأسهم العادية
-                return self._handle_stock_data(symbol, current_price, volume, info)
-                
+            # حساب Bid/Ask بشكل واقعي
+            spread = current_price * 0.0005  # spread 0.05%
+            bid_price = round(current_price - spread, 2)
+            ask_price = round(current_price + spread, 2)
+            
+            # نطاق اليوم
+            day_high = data['High'].max() if len(data) > 0 else current_price * 1.01
+            day_low = data['Low'].min() if len(data) > 0 else current_price * 0.99
+            
+            live_data = {
+                'symbol': symbol,
+                'symbol_name': self.get_symbol_name(symbol),
+                'current_price': round(current_price, 2),
+                'bid_price': bid_price,
+                'ask_price': ask_price,
+                'bid_size': 1000,  # حجم افتراضي
+                'ask_size': 1000,
+                'volume': int(volume),
+                'change': round(change, 2),
+                'change_percent': round(change_percent, 2),
+                'day_high': round(day_high, 2),
+                'day_low': round(day_low, 2),
+                'previous_close': round(prev_price, 2) if len(data) > 1 else round(current_price, 2),
+                'timestamp': datetime.now().strftime("%H:%M:%S"),
+                'is_index': is_index
+            }
+            
+            print(f"✅ تم جلب بيانات حية لـ {symbol}: {current_price}")
+            return live_data
+            
         except Exception as e:
             print(f"❌ خطأ في جلب البيانات الحية لـ {symbol}: {e}")
-            return self._get_fallback_data(symbol)
+            return self._get_fallback_live_data(symbol)
 
+    def _get_fallback_live_data(self, symbol):
+        """بيانات احتياطية للبيانات الحية"""
+        try:
+            # استخدام بيانات أساسية كاحتياطي
+            data = self.get_stock_data(symbol)
+            if data is not None and not data.empty:
+                current_price = data['Close'].iloc[-1]
+            else:
+                # أسعار افتراضية
+                base_prices = {
+                    'SPY': 450.50, 'QQQ': 380.75, 'NVDA': 480.25, 
+                    'TSLA': 240.80, 'GLD': 180.40, '^GSPC': 4500.60,
+                    '^NDX': 15500.30
+                }
+                current_price = base_prices.get(symbol, 100.0)
+            
+            is_index = symbol.startswith('^')
+            spread = current_price * 0.0005
+            
+            return {
+                'symbol': symbol,
+                'symbol_name': self.get_symbol_name(symbol),
+                'current_price': round(current_price, 2),
+                'bid_price': round(current_price - spread, 2),
+                'ask_price': round(current_price + spread, 2),
+                'bid_size': 500,
+                'ask_size': 500,
+                'volume': 1000000,
+                'change': round(current_price * 0.01, 2),  # تغيير 1% افتراضي
+                'change_percent': 1.0,
+                'day_high': round(current_price * 1.02, 2),
+                'day_low': round(current_price * 0.98, 2),
+                'previous_close': round(current_price * 0.99, 2),
+                'timestamp': datetime.now().strftime("%H:%M:%S"),
+                'is_index': is_index
+            }
+            
+        except Exception as e:
+            print(f"❌ خطأ في البيانات الاحتياطية: {e}")
+            return None
     def _handle_index_data(self, symbol, current_price, volume, info):
         """معالجة بيانات المؤشرات"""
         # للمؤشرات ما فيش Bid/Ask, بنحسبها بناءً على السعر
@@ -231,7 +299,7 @@ class TechnicalAnalyzer:
         return None
 
     def format_trading_data(self, live_data):
-        """تنسيق بيانات التداول مع معالجة المؤشرات"""
+        """تنسيق بيانات التداول بشكل مبسط"""
         if not live_data:
             return "⚠️ لا توجد بيانات متاحة"
         
@@ -243,49 +311,49 @@ class TechnicalAnalyzer:
         volume = live_data['volume']
         is_index = live_data.get('is_index', False)
         
-        if is_index:
-            # تنسيق خاص للمؤشرات
-            bid_ask_text = """
-📊 **المؤشرات لا تحتوي على عروض مباشرة**
-💡 *يتم حساب العروض بناءً على تحليل السوق*
-            """.strip()
-        else:
-            # تنسيق عادي للأسهم
-            bid_ask_text = f"""
-🔴 **Bid:** {live_data['bid_price']:.2f}  (Size: {live_data['bid_size']})
-🟢 **Ask:** {live_data['ask_price']:.2f}  (Size: {live_data['ask_size']})
-            """.strip()
-        
         # تنسيق التغير
         change_icon = "🟢" if change_percent >= 0 else "🔴"
         change_text = f"{change_icon} **التغير:** {change:+.2f} ({change_percent:+.2f}%)"
         
-        # تنسيق الحجم والنطاق السعري
-        volume_text = f"📊 **الحجم:** {self.format_volume(volume)}" if volume > 0 else "📊 **الحجم:** غير متاح"
-        range_text = f"📈 **النطاق:** {live_data['day_low']:.2f} - {live_data['day_high']:.2f}"
+        # تنسيق الحجم
+        volume_text = f"📊 **الحجم:** {self.format_volume(volume)}"
+        
+        # تنسيق Bid/Ask
+        if is_index:
+            bid_ask_text = """
+    📊 **المؤشرات لا تحتوي على عروض مباشرة**
+    💡 *يتم حساب العروض بناءً على تحليل السوق*
+            """.strip()
+        else:
+            bid_ask_text = f"""
+    🔴 **Bid:** {live_data['bid_price']:.2f}  (Size: {live_data['bid_size']})
+    🟢 **Ask:** {live_data['ask_price']:.2f}  (Size: {live_data['ask_size']})
+            """.strip()
+        
+        # نطاق اليوم
+        range_text = f"📈 **النطاق اليومي:** {live_data['day_low']:.2f} - {live_data['day_high']:.2f}"
         
         # إضافة ملاحظة للمؤشرات
         index_note = "\n\n💡 *بيانات المؤشرات محسوبة - لا تحتوي على عروض مباشرة*" if is_index else ""
         
         formatted_text = f"""
-📈 **{symbol_name} - بيانات التداول**
+    📈 **{symbol_name} - بيانات التداول الحية**
 
-💰 **السعر الحالي:** {current_price:.2f}
-{change_text}
-{volume_text}
-{range_text}
+    💰 **السعر الحالي:** {current_price:.2f}
+    {change_text}
+    {volume_text}
+    {range_text}
 
-⚡ **العروض:**
-{bid_ask_text}
+    ⚡ **العروض:**
+    {bid_ask_text}
 
-🕒 **آخر تحديث:** {live_data['timestamp']}
-{index_note}
+    🕒 **آخر تحديث:** {live_data['timestamp']}
+    {index_note}
 
-💡 *بيانات محاكاة لأغراض تعليمية*
-        """
+    💡 *بيانات محاكاة لأغراض تعليمية*
+        """.strip()
         
         return formatted_text
-
     def format_volume(self, volume):
         """تنسيق الحجم بشكل مقروء"""
         if volume >= 1000000:

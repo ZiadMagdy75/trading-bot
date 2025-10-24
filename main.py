@@ -133,14 +133,14 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
         await update.message.reply_text(status_text, parse_mode='Markdown')
     
     async def live_trading_data(self, update: Update, context: CallbackContext):
-        """عرض بيانات التداول الحية"""
+        """عرض بيانات التداول الحية - نسخة محسنة"""
         if context.args:
             symbol = context.args[0].upper()
             if symbol not in SYMBOLS:
                 await update.message.reply_text("❌ الرمز غير مدعوم. استخدم أحد الرموز التالية:\n" + "\n".join(SYMBOLS))
                 return
         else:
-            await update.message.reply_text("❌ يرجى تحديد رمز السهم. مثال:\n/live SPY")
+            await update.message.reply_text("❌ يرجى تحديد رمز السهم. مثال:\n/live SPY\n/live NVDA")
             return
         
         await update.message.reply_text(f"🔄 جاري جلب بيانات {symbol}...")
@@ -159,7 +159,7 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
         except Exception as e:
             logger.error(f"Error getting live data for {symbol}: {e}")
             await update.message.reply_text("❌ حدث خطأ في جلب البيانات الحية")
-    
+        
     async def analyze_symbol(self, symbol):
         """تحليل سهم معين مع تحسين الأداء"""
         try:
