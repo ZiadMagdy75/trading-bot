@@ -431,9 +431,10 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
         print("✅ نظام التحديث التلقائي يعمل بنجاح!")
     
     def get_next_update_time(self):
-        """حساب وقت التحديث القادم باستخدام التوقيت المحلي"""
-        return time_utils.format_next_update(UPDATE_INTERVAL)
-    
+        """حساب وقت التحديث القادم"""
+        next_update = time_utils.get_next_update_time(UPDATE_INTERVAL)
+        return time_utils.format_time(next_update, "%H:%M")
+        
 
     def create_report_text(self, symbol, current_price, supports, resistances, options, trend_info):
         """إنشاء نص التقرير مع شرح للمستويات"""
