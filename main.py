@@ -304,7 +304,7 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
             await update.message.reply_text(
                 f"✅ **تم تفعيل التحديث التلقائي**\n\n"
                 f"⏰ سيتم إرسال التقارير كل 30 دقيقة تلقائياً\n"
-                
+                f"⏰ **التحديث القادم:** {next_update}\n"
                 f"💡 لإيقاف التحديث: /stop",
                 parse_mode='Markdown'
             )
@@ -396,7 +396,7 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
 
     💡 **الأوامر:**
     /stop - إيقاف التحديث التلقائي
-    /checkauto - فحص حالة التحديث
+    
             """.strip()
             
             await self.app.bot.send_message(chat_id, summary, parse_mode='Markdown')
@@ -498,7 +498,7 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
 {options_text if options_text else "• لا توجد توصيات متاحة حالياً"}
 
 🕒 **الوقت الحالي:** {current_time}
-
+⏰ **التحديث القادم:** {next_update}
 """
         return report
     
