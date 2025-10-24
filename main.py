@@ -304,7 +304,6 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
             await update.message.reply_text(
                 f"✅ **تم تفعيل التحديث التلقائي**\n\n"
                 f"⏰ سيتم إرسال التقارير كل 30 دقيقة تلقائياً\n"
-                f"📊 التحديث القادم: {next_update}\n"
                 
                 f"💡 لإيقاف التحديث: /stop",
                 parse_mode='Markdown'
@@ -379,7 +378,6 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
             summary = (
                 f"✅ **تم الانتهاء من التحليل التلقائي**\n\n"
                 f"📊 تم تحليل {successful_analysis} من {len(SYMBOLS)} أسهم بنجاح\n"
-                f"⏰ التحديث القادم: {next_update}\n\n"
                 f"💡 لإيقاف التحديث: /stop"
             )
             await self.app.bot.send_message(chat_id, summary, parse_mode='Markdown')
@@ -478,7 +476,6 @@ S&P 500 (^GSPC), NASDAQ 100 (^NDX), NVDA, SPY, QQQ, GLD, TSLA
 📊 **عقود الأوبشن المقترحة:**
 {options_text if options_text else "• لا توجد توصيات متاحة حالياً"}
 
-⏰ **التحديث القادم:** {next_update}
 🕒 **الوقت الحالي:** {current_time}
 
 """
