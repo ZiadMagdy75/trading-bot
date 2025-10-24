@@ -47,23 +47,42 @@ class TradingBot:
         self.app.add_handler(CommandHandler("quote", self.live_trading_data))
         self.app.add_handler(CommandHandler("status", self.status_command))
         self.app.add_handler(CommandHandler("test", self.test_connection))
-        
+
     async def test_connection(self, update: Update, context: CallbackContext):
         """اختبار اتصال البوت بالإنترنت"""
         try:
             import requests
             await update.message.reply_text("🔍 جاري اختبار الاتصال...")
             
-            # اختبار الاتصال بـ Yahoo Finance
-            response = requests.get('https://query1.finance.yahoo.com/v8/finance/chart/SPY', timeout=10)
+            # انتظار عشوائي أولاً
+            import time, random
+            time.sleep(random.uniform(2, 4))
             
-            if response.status_code == 200:
-                await update.message.reply_text("✅ الاتصال بالإنترنت يعمل بشكل جيد")
-            else:
-                await update.message.reply_text(f"⚠️ مشكلة في الاتصال: {response.status_code}")
+            # اختبار متعدد
+            test_urls = [
+                "https://www.google.com",
+                "https://finance.yahoo.com",
+                "https://query1.finance.yahoo.com/v8/finance/chart/SPY"
+            ]
+            
+            results = []
+            for url in test_urls:
+                try:
+                    response = requests.get(url, timeout=10, headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    })
+                    results.append(f"{'✅' if response.status_code == 200 else '❌'} {url}: {response.status_code}")
+                    time.sleep(1)  # انتظار بين الاختبارات
+                except Exception as e:
+                    results.append(f"❌ {url}: {str(e)}")
+            
+            report = "📊 **تقرير اختبار الاتصال:**\n\n" + "\n".join(results)
+            await update.message.reply_text(report, parse_mode='Markdown')
                 
         except Exception as e:
-            await update.message.reply_text(f"❌ فشل الاتصال: {e}")
+            await update.message.reply_text(f"❌ فشل الاختبار: {e}")
+    
+    
     async def start_command(self, update: Update, context: CallbackContext):
         """ترحيب بالعميل"""
         welcome_text = """
