@@ -19,18 +19,32 @@ class TechnicalAnalyzer:
         yf.utils.requests = self.session
 
     def get_stock_data(self, symbol):
-        """جلب بيانات السهم مع معالجة الرموز الخاصة وfallback عند الفشل"""
+        """جلب بيانات السهم مع معالجة الرموز الخاصة"""
+        import json
         try:
             print(f"🔍 جلب بيانات: {symbol}")
-
-            # استخدام الجلسة المخصصة
+            
             ticker = yf.Ticker(symbol, session=self.session)
             data = ticker.history(period=self.period, interval=self.interval)
 
-            # معالجة في حال البيانات فاضية
             if data is None or data.empty:
-                print(f"⚠️ لا توجد بيانات للفترة {self.period}، تجربة فترة بديلة...")
-                data = ticker.history(period="5d", interval="1h")
+                print(f"⚠️ لا توجد بيانات من Yahoo، تجربة API بديل...")
+
+                # ✅ استخدام API مجاني بديل (RapidAPI Yahoo Finance)
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=30m&range=5d"
+                r = self.session.get(url, timeout=10)
+                chart = r.json()["chart"]["result"][0]
+
+                timestamps = chart["timestamp"]
+                close_prices = chart["indicators"]["quote"][0]["close"]
+
+                df = pd.DataFrame({
+                    "Datetime": pd.to_datetime(timestamps, unit="s"),
+                    "Close": close_prices
+                }).dropna()
+
+                df.set_index("Datetime", inplace=True)
+                data = df
 
             if data is None or data.empty:
                 print(f"❌ لا توجد بيانات نهائيًا لـ {symbol}")
